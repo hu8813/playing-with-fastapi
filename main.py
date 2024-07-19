@@ -11,11 +11,13 @@ For more information, please visit https://www.gnu.org/licenses/gpl-3.0.html.
 
 import asyncio
 import datetime
+import os
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
-API_KEY = "your_openweathermap_api_key"
+API_KEY = os.getenv("OPENWEATHERKEY")
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 app = FastAPI()
@@ -53,15 +55,20 @@ def fetch_weather(city: str):
         }
         return weather_info
     else:
-        raise HTTPException(status_code=response.status_code, detail="Error fetching weather data")
+        # Log the error detail for debugging
+        print(f"Error fetching weather data for {city}: {response.status_code} - {response.text}")
+        raise HTTPException(status_code=response.status_code, detail=response.json())
 
 @app.on_event("startup")
 async def startup_event():
     """Creates sub-processes to run in the background when the server starts."""
     cities = ["London", "New York", "Tokyo"]  # Add initial cities to fetch weather data
     for city in cities:
-        weather_cache[city] = fetch_weather(city)
-        asyncio.create_task(refresh_weather_data(city))
+        try:
+            weather_cache[city] = fetch_weather(city)
+            asyncio.create_task(refresh_weather_data(city))
+        except HTTPException as e:
+            print(f"Failed to fetch initial data for {city}: {e.detail}")
 
 @app.get(path="/", description="Get the root endpoint.")
 async def get_root():
@@ -76,7 +83,7 @@ async def get_weather(city: str):
             weather_cache[city] = fetch_weather(city)
         return weather_cache[city]
     except HTTPException as e:
-        raise e
+        return JSONResponse(status_code=e.status_code, content=e.detail)
 
 @app.get(path="/today/{city}", description="Get today's weather information for a specific city.")
 async def get_today_weather(city: str):
@@ -84,7 +91,7 @@ async def get_today_weather(city: str):
     try:
         return fetch_weather(city)
     except HTTPException as e:
-        raise e
+        return JSONResponse(status_code=e.status_code, content=e.detail)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, loop="asyncio")
