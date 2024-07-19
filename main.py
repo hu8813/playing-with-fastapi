@@ -16,35 +16,53 @@ import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
-BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+if not API_KEY:
+    raise ValueError("API key for OpenWeatherMap is not set. Please check your environment variables.")
+
+GEO_URL = "http://api.openweathermap.org/geo/1.0/direct"
+WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 app = FastAPI()
 
 # Cache for storing weather data
 weather_cache = {}
 
-async def refresh_weather_data(city: str):
+def get_coordinates(city: str):
     """
-    Refreshes the weather data every 24 hours for a specific city.
-    """
-    global weather_cache  # needed to modify the global weather_cache object
-
-    while True:
-        await asyncio.sleep(60*60*24)  # refresh every 24 hours
-        weather_cache[city] = fetch_weather(city)
-
-def fetch_weather(city: str):
-    """
-    Fetches weather data for a specific city from OpenWeatherMap.
+    Get the coordinates (latitude and longitude) of a city using the Geocoding API.
     """
     params = {
         "q": city,
+        "limit": 1,
+        "appid": API_KEY
+    }
+    response = requests.get(GEO_URL, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        if data:
+            return data[0]["lat"], data[0]["lon"]
+        else:
+            raise HTTPException(status_code=404, detail="City not found.")
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.json())
+
+def fetch_weather(lat: float, lon: float):
+    """
+    Fetches weather data for a specific location from OpenWeatherMap.
+    """
+    params = {
+        "lat": lat,
+        "lon": lon,
         "appid": API_KEY,
         "units": "metric"  # to get temperature in Celsius
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get(WEATHER_URL, params=params)
     
     if response.status_code == 200:
         data = response.json()
@@ -56,7 +74,7 @@ def fetch_weather(city: str):
         return weather_info
     else:
         # Log the error detail for debugging
-        print(f"Error fetching weather data for {city}: {response.status_code} - {response.text}")
+        print(f"Error fetching weather data: {response.status_code} - {response.text}")
         raise HTTPException(status_code=response.status_code, detail=response.json())
 
 @app.on_event("startup")
@@ -65,8 +83,8 @@ async def startup_event():
     cities = ["London", "New York", "Tokyo"]  # Add initial cities to fetch weather data
     for city in cities:
         try:
-            weather_cache[city] = fetch_weather(city)
-            asyncio.create_task(refresh_weather_data(city))
+            lat, lon = get_coordinates(city)
+            weather_cache[city] = fetch_weather(lat, lon)
         except HTTPException as e:
             print(f"Failed to fetch initial data for {city}: {e.detail}")
 
@@ -80,7 +98,8 @@ async def get_weather(city: str):
     """Endpoint to get weather information for a specific city."""
     try:
         if city not in weather_cache:
-            weather_cache[city] = fetch_weather(city)
+            lat, lon = get_coordinates(city)
+            weather_cache[city] = fetch_weather(lat, lon)
         return weather_cache[city]
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content=e.detail)
@@ -89,7 +108,8 @@ async def get_weather(city: str):
 async def get_today_weather(city: str):
     """Endpoint to get today's weather information for a specific city."""
     try:
-        return fetch_weather(city)
+        lat, lon = get_coordinates(city)
+        return fetch_weather(lat, lon)
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content=e.detail)
 
