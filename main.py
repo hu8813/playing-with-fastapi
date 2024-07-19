@@ -91,7 +91,7 @@ async def startup_event():
 @app.get(path="/", description="Get the root endpoint.")
 async def get_root():
     """Endpoint to get the root tree of the API."""
-    return {"message": "Welcome to the Weather API. Use endpoints /weather/{city} to get weather information."}
+    return {"message": "Welcome to the Weather API. Use endpoints /weather/{city} to get weather information. i.e. https://playing-with-fastapi.vercel.app/weather/vienna"}
 
 @app.get(path="/weather/{city}", description="Get weather information for a specific city.")
 async def get_weather(city: str):
@@ -104,14 +104,6 @@ async def get_weather(city: str):
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content=e.detail)
 
-@app.get(path="/today/{city}", description="Get today's weather information for a specific city.")
-async def get_today_weather(city: str):
-    """Endpoint to get today's weather information for a specific city."""
-    try:
-        lat, lon = get_coordinates(city)
-        return fetch_weather(lat, lon)
-    except HTTPException as e:
-        return JSONResponse(status_code=e.status_code, content=e.detail)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, loop="asyncio")
