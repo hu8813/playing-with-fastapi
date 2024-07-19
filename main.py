@@ -17,7 +17,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-API_KEY = os.getenv("OPENWEATHERKEY")
+API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 app = FastAPI()
