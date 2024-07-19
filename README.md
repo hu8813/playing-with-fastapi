@@ -4,10 +4,7 @@
 
 <https://playing-with-fastapi.vercel.app/root>
 
-<https://playing-with-fastapi.vercel.app/today>
+<https://playing-with-fastapi.vercel.app/weather/city>
 
-<https://playing-with-fastapi.vercel.app/tomorrow>
+<https://playing-with-fastapi.vercel.app/today/city>
 
-<https://playing-with-fastapi.vercel.app/{date}>
-
-- DD.MM.YYYY format replaces {date}.
