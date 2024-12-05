@@ -2,3 +2,4 @@ fastapi
 uvicorn
 requests
 jsonpickle
+python-dotenv
